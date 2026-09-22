@@ -1,4 +1,5 @@
 import { CardCategory, CardStatus, Currency } from "@/data/types"
+import { formatMoney } from "./money"
 
 /**
  * Card numbers are generated here, on the server, on the 4242 test BIN.
@@ -20,6 +21,17 @@ export const CARD_CATEGORIES: readonly CardCategory[] = [
   "office_supplies",
   "professional_services",
 ]
+
+/** The one place a category's display label is defined. Reused by the
+ * issue form and by the card detail page - a second copy is how the two
+ * drift. */
+export const CARD_CATEGORY_LABELS: Record<CardCategory, string> = {
+  software: "Software",
+  advertising: "Advertising",
+  travel: "Travel",
+  office_supplies: "Office supplies",
+  professional_services: "Professional services",
+}
 
 /** Luhn check digit for a numeric-digit payload (no check digit included). */
 export function luhnCheckDigit(payload: string): string {
@@ -117,6 +129,14 @@ export function validateIssueCardInput(
     return { valid: false, error: "A valid merchant is required." }
   }
 
+  const currency = b.currency
+  if (
+    typeof currency !== "string" ||
+    !ALLOWED_CARD_CURRENCIES.includes(currency as Currency)
+  ) {
+    return { valid: false, error: "Currency must be USD, EUR, or GBP." }
+  }
+
   const spendLimit = b.spendLimit
   if (
     typeof spendLimit !== "number" ||
@@ -128,16 +148,8 @@ export function validateIssueCardInput(
   if (spendLimit > MAX_SPEND_LIMIT_MINOR_UNITS) {
     return {
       valid: false,
-      error: `Spend limit cannot exceed ${MAX_SPEND_LIMIT_MINOR_UNITS} minor units.`,
+      error: `Spend limit cannot exceed ${formatMoney(MAX_SPEND_LIMIT_MINOR_UNITS, currency as Currency)}.`,
     }
-  }
-
-  const currency = b.currency
-  if (
-    typeof currency !== "string" ||
-    !ALLOWED_CARD_CURRENCIES.includes(currency as Currency)
-  ) {
-    return { valid: false, error: "Currency must be USD, EUR, or GBP." }
   }
 
   const category =

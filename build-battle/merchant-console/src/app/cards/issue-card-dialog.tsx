@@ -20,19 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/Select"
-import { ALLOWED_CARD_CURRENCIES, CARD_CATEGORIES } from "@/lib/cards"
+import {
+  ALLOWED_CARD_CURRENCIES,
+  CARD_CATEGORIES,
+  CARD_CATEGORY_LABELS,
+} from "@/lib/cards"
 import { parseAmountToMinorUnits } from "@/lib/money"
-import { CardCategory, Currency } from "@/data/types"
+import { Currency } from "@/data/types"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-
-const CATEGORY_LABELS: Record<CardCategory, string> = {
-  software: "Software",
-  advertising: "Advertising",
-  travel: "Travel",
-  office_supplies: "Office supplies",
-  professional_services: "Professional services",
-}
 
 interface Props {
   merchants: { id: string; name: string }[]
@@ -255,7 +251,7 @@ export function IssueCardDialog({ merchants }: Props) {
                       <SelectItem value="none">None</SelectItem>
                       {CARD_CATEGORIES.map((category) => (
                         <SelectItem key={category} value={category}>
-                          {CATEGORY_LABELS[category]}
+                          {CARD_CATEGORY_LABELS[category]}
                         </SelectItem>
                       ))}
                     </SelectContent>
