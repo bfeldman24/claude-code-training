@@ -25,7 +25,7 @@ import {
   CARD_CATEGORIES,
   CARD_CATEGORY_LABELS,
 } from "@/lib/cards"
-import { parseAmountToMinorUnits } from "@/lib/money"
+import { formatMoney, parseAmountToMinorUnits } from "@/lib/money"
 import { Currency } from "@/data/types"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -199,7 +199,7 @@ export function IssueCardDialog({ merchants }: Props) {
                   <p className="text-xs text-gray-500">
                     {form.spendLimitInput
                       ? parsedLimit !== null
-                        ? `${parsedLimit.toLocaleString()} minor units`
+                        ? `Limit: ${formatMoney(parsedLimit, form.currency)}`
                         : "Enter a valid amount, like 250 or 250.00."
                       : "Enter an amount in the merchant's currency."}
                   </p>
