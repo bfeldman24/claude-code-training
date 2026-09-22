@@ -1,5 +1,8 @@
+import { generateCardNumber } from "@/lib/cards"
 import { merchants } from "./merchants"
 import {
+  Card,
+  CardCategory,
   Currency,
   Dispute,
   Payment,
@@ -148,9 +151,92 @@ export function generate() {
   }
 
   const payouts = generatePayouts(payments)
-  // TODO(NWP-201, agent C): seed Card[] here using generateCardNumber from
-  // src/lib/cards.ts, matching the deterministic `rand`/`pick` pattern above.
-  return { payments, refunds, disputes, payouts, cards: [] }
+  const cards = generateCards()
+  return { payments, refunds, disputes, payouts, cards }
+}
+
+interface CardSeed {
+  nickname: string
+  status: Card["status"]
+  category: CardCategory | null
+  spendRatio: number
+  daysAgo: number
+}
+
+const CARD_SEEDS: CardSeed[] = [
+  {
+    nickname: "Ad spend — Meta",
+    status: "active",
+    category: "advertising",
+    spendRatio: 0.85,
+    daysAgo: 40,
+  },
+  {
+    nickname: "SaaS subscriptions",
+    status: "active",
+    category: "software",
+    spendRatio: 0.4,
+    daysAgo: 75,
+  },
+  {
+    nickname: "Contractor tools Q3",
+    status: "frozen",
+    category: "professional_services",
+    spendRatio: 0.6,
+    daysAgo: 20,
+  },
+  {
+    nickname: "Travel — field team",
+    status: "active",
+    category: "travel",
+    spendRatio: 0.15,
+    daysAgo: 10,
+  },
+  {
+    nickname: "Office supplies",
+    status: "active",
+    category: null,
+    spendRatio: 0.25,
+    daysAgo: 55,
+  },
+  {
+    nickname: "Miscellaneous ops card",
+    status: "active",
+    category: null,
+    spendRatio: 0.5,
+    daysAgo: 90,
+  },
+]
+
+function generateCards(): Card[] {
+  const cards: Card[] = []
+
+  CARD_SEEDS.forEach((seed, index) => {
+    const merchant = pick(merchants)
+    const spendLimit = between(5_000, 500_000)
+    const spend = Math.round(spendLimit * seed.spendRatio)
+
+    const createdAt = new Date(GENERATED_AT)
+    createdAt.setUTCDate(createdAt.getUTCDate() - seed.daysAgo)
+    createdAt.setUTCHours(between(0, 23), between(0, 59), between(0, 59), 0)
+
+    const { last4 } = generateCardNumber(rand)
+
+    cards.push({
+      id: `crd_${pad(index + 1, 4)}`,
+      nickname: seed.nickname,
+      merchantId: merchant.id,
+      spendLimit,
+      spend,
+      currency: merchant.currency as Currency,
+      status: seed.status,
+      last4,
+      category: seed.category,
+      createdAt: createdAt.toISOString(),
+    })
+  })
+
+  return cards
 }
 
 function generatePayouts(payments: Payment[]): Payout[] {
