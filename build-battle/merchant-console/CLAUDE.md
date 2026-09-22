@@ -51,11 +51,12 @@ These four explain most of the code, and breaking them is how bugs get in here.
 
 | Path | What lives there |
 | --- | --- |
-| `src/app/` | Console routes: overview, payments, disputes, payouts. Cards is NWP-201 and does not exist yet |
+| `src/app/` | Console routes: overview, payments, disputes, payouts, cards |
+| `src/app/cards/` | Card list, detail, issue-card `Drawer` form, and the freeze/unfreeze control (NWP-201) |
 | `src/app/api/` | Route handlers |
 | `src/data/` | Seed JSON, the in-memory store, and types |
 | `src/components/` | Tremor-based primitives and the console's own components |
-| `src/lib/` | Money, date, and CSV helpers, each with a `.test.ts` beside it. Read these before touching an amount |
+| `src/lib/` | Money, date, CSV, and card helpers, each with a `.test.ts` beside it. Read these before touching an amount or a card number |
 
 ## Before you push
 

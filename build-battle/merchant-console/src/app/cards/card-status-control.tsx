@@ -4,7 +4,7 @@ import { Button } from "@/components/Button"
 import { StatusBadge } from "@/components/ui/payments/StatusBadge"
 import { CardStatus } from "@/data/types"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 /**
  * Renders the status badge plus, for active/frozen cards, a toggle to flip
@@ -22,6 +22,13 @@ export function CardStatusControl({
   const [current, setCurrent] = useState(status)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // The row's key doesn't change on a status flip, so this component stays
+  // mounted; without this it never notices a server-driven refresh (e.g.
+  // after the 409 case below) and drifts from what the store actually holds.
+  useEffect(() => {
+    setCurrent(status)
+  }, [status])
 
   const canToggle = current === "active" || current === "frozen"
   const next: CardStatus = current === "active" ? "frozen" : "active"
@@ -63,7 +70,11 @@ export function CardStatusControl({
           {next === "frozen" ? "Freeze" : "Unfreeze"}
         </Button>
       )}
-      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
+      {error && (
+        <span role="alert" className="text-xs text-red-600 dark:text-red-400">
+          {error}
+        </span>
+      )}
     </div>
   )
 }

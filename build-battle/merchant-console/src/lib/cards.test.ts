@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 import {
   ALLOWED_CARD_CURRENCIES,
   CARD_BIN,
+  CARD_STATUSES,
   MAX_SPEND_LIMIT_MINOR_UNITS,
   canTransition,
   generateCardNumber,
   isValidLuhn,
   luhnCheckDigit,
+  maskCard,
   validateIssueCardInput,
 } from "./cards"
 
@@ -75,6 +77,33 @@ describe("isValidLuhn / luhnCheckDigit", () => {
     const payload = "424242424242424"
     const check = luhnCheckDigit(payload)
     expect(isValidLuhn(payload + check)).toBe(true)
+  })
+
+  it("handles a single-digit payload without throwing", () => {
+    const check = luhnCheckDigit("4")
+    expect(isValidLuhn("4" + check)).toBe(true)
+  })
+
+  it("handles an empty payload as a zero check digit", () => {
+    expect(luhnCheckDigit("")).toBe("0")
+  })
+})
+
+describe("maskCard", () => {
+  it("renders exactly four dots-then-last4, never the full number", () => {
+    expect(maskCard("4242")).toBe("•••• 4242")
+  })
+
+  it("does not alter or truncate whatever last4 it is given", () => {
+    // Contract is "show last4 verbatim" - this only breaks if a caller
+    // hands it something other than four digits, which no caller does.
+    expect(maskCard("0007")).toBe("•••• 0007")
+  })
+})
+
+describe("CARD_STATUSES", () => {
+  it("lists exactly the three known statuses, with no drift from the state machine", () => {
+    expect(new Set(CARD_STATUSES)).toEqual(new Set(["active", "frozen", "cancelled"]))
   })
 })
 
@@ -192,5 +221,35 @@ describe("validateIssueCardInput", () => {
     if (result.valid) {
       expect(result.data.category).toBe("travel")
     }
+  })
+
+  // The client is not trusted, so wrong-typed JSON needs the same rejection
+  // as wrong-valued JSON - a number where a string is expected, or vice
+  // versa, should not slip past a loose truthiness check.
+  it("rejects a non-string nickname", () => {
+    const result = validateIssueCardInput({ ...base, nickname: 12345 }, merchantExists)
+    expect(result.valid).toBe(false)
+  })
+
+  it("rejects a non-string merchantId", () => {
+    const result = validateIssueCardInput({ ...base, merchantId: 1 }, merchantExists)
+    expect(result.valid).toBe(false)
+  })
+
+  it("rejects a spend limit sent as a numeric string", () => {
+    const result = validateIssueCardInput({ ...base, spendLimit: "10000" }, merchantExists)
+    expect(result.valid).toBe(false)
+  })
+
+  it("rejects a missing currency field entirely", () => {
+    const { currency, ...withoutCurrency } = base
+    const result = validateIssueCardInput(withoutCurrency, merchantExists)
+    expect(result.valid).toBe(false)
+  })
+
+  it("rejects a request body that is not an object", () => {
+    expect(validateIssueCardInput("not an object", merchantExists).valid).toBe(false)
+    expect(validateIssueCardInput(null, merchantExists).valid).toBe(false)
+    expect(validateIssueCardInput(42, merchantExists).valid).toBe(false)
   })
 })

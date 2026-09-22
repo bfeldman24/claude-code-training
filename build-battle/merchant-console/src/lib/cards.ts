@@ -88,6 +88,12 @@ const TRANSITIONS: Record<CardStatus, readonly CardStatus[]> = {
   cancelled: [],
 }
 
+/** Every valid CardStatus, derived from TRANSITIONS so a new status can't
+ * be added to the state machine without also widening this allowlist. */
+export const CARD_STATUSES: readonly CardStatus[] = Object.keys(
+  TRANSITIONS,
+) as CardStatus[]
+
 /** Guards the card status state machine. `cancelled` is terminal. */
 export function canTransition(from: CardStatus, to: CardStatus): boolean {
   if (from === to) return false

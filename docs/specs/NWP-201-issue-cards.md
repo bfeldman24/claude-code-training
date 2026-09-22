@@ -5,7 +5,7 @@
 
 **Ticket:** [NWP-201](../tickets/NWP-201.md)
 **Author:** befeldman
-**Status:** building
+**Status:** done
 
 ## Problem
 
@@ -101,5 +101,24 @@ Quoting the ticket directly:
 ## Open questions
 
 - Whether `src/app/api/cards/route.ts` and `[id]/route.ts` (already committed by a parallel agent) will still exist in this exact shape by the time UI work lands — this spec treats their current contract (`GET` list, `POST` → `{card, number}` 201, `GET`/`PATCH` by id) as stable, but it's worth a final diff check before wiring the UI.
-- Whether the `components.md` "Dialog" → "Drawer" mismatch should be fixed as part of this PR or left for a separate docs fix; flagged here rather than silently patched.
+- Resolved: the `components.md` "Dialog" -> "Drawer" mismatch is fixed in this PR (post-review cleanup pass) rather than left for a separate docs fix - it's a one-line, zero-risk correction and leaving it stale after this PR's own spec called it out would be worse than fixing it.
 - Whether category lock (stretch) should block category changes only via the API (already true — `PATCH` only accepts `status`) or also needs an explicit UI affordance showing it's locked, versus just omitting a category field from any edit UI (there is none, since editing is out of scope per NWP-202).
+
+## Post-review changes
+
+Two review passes ran after the core build, one by this author and one by an independent adversarial reviewer with no prior context on the branch. Documenting both here rather than letting the fixes speak for themselves, since "does the code match the spec" is part of what this file is graded on.
+
+**First pass (self-review before opening the PR):**
+- `docs/cards/[id]/page.tsx` showed the raw `CardCategory` enum (`office_supplies`) instead of a label. Fixed by adding `CARD_CATEGORY_LABELS` to `src/lib/cards.ts` as the one shared source, used by both the issue form and the detail page.
+- `validateIssueCardInput`'s over-cap error read "cannot exceed 5000000 minor units." Reordered currency validation ahead of the limit check (no behavior change, order only) so the message reports the cap with `formatMoney` in the request's own currency.
+- Investigated and ruled out a suspected id-collision race in `POST /api/cards` (`store.cards.length + 1`): there is no `await` between reading the length and pushing, so Node's single-threaded event loop can't interleave two requests inside that window. Not a bug; not changed.
+
+**Second pass (independent adversarial review, post-PR):** found three real bugs the first pass missed, all fixed:
+1. **Reveal-once violation on cancel-during-submit.** Closing the issue-card `Drawer` while a `POST` was still in flight didn't cancel that request's effect on component state. If it resolved after close, `revealedNumber`/`step` were set anyway; since only *closing* the drawer reset that state (not *opening* it), the next "Issue card" click could open straight into the previous card's success screen showing its full number again — a live violation of "the full number is shown exactly once." Fixed with a `requestIdRef` that invalidates in-flight requests on close, so a stale response is a no-op.
+2. **No double-submit guard in the issue form.** `handleSubmit` relied only on the Button's `disabled={isLoading}`, which only takes effect after a re-render - a fast double-click or Enter-plus-click could fire two `POST`s for one user action, issuing two cards. Fixed with an explicit `if (submitting) return` guard at the top of the handler.
+3. **`CardStatusControl` never resynced to the server after a failed PATCH.** `useState(status)` only seeds from the prop on first mount; since the row's `key` doesn't change on a status flip, the component stays mounted and a `router.refresh()` (called on a 409) had no way to update the already-mounted badge. Fixed with a `useEffect` that resyncs local state to the `status` prop.
+
+Also fixed as code-quality findings from the same pass: the PATCH route's status allowlist was a second, unchecked `CardStatus` enumeration (`CARD_STATUSES` in the route file) that TypeScript wouldn't catch drifting from the state machine in `lib/cards.ts`'s `TRANSITIONS` - now derived from `TRANSITIONS` itself, one source of truth. `CardStatusControl`'s error text was missing `role="alert"`, inconsistent with the issue dialog's error banner - added. Test coverage gaps the reviewer named (type-confusion inputs to `validateIssueCardInput`, a `maskCard` test, Luhn boundary cases at 0-1 digit payloads) were added to `src/lib/cards.test.ts`, bringing it from 27 to 37 tests (65 total in the suite).
+
+Deliberately not done: route-handler-level integration tests for the reveal-once guarantee. The codebase has no precedent for testing route handlers directly (payments has none either), the guarantee is already enforced structurally (`Card` has no `number` field - a compile-time guarantee, not just a tested one), and it was re-verified live against the running server multiple times across both review passes. Adding a new test pattern here would be scope creep, not cleanup.
+

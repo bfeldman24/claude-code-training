@@ -1,9 +1,7 @@
-import { canTransition } from "@/lib/cards"
+import { CARD_STATUSES, canTransition } from "@/lib/cards"
 import { store } from "@/data/store"
 import { CardStatus } from "@/data/types"
 import { NextRequest, NextResponse } from "next/server"
-
-const CARD_STATUSES: readonly CardStatus[] = ["active", "frozen", "cancelled"]
 
 interface RouteParams {
   params: Promise<{ id: string }>

@@ -28,7 +28,7 @@ import {
 import { formatMoney, parseAmountToMinorUnits } from "@/lib/money"
 import { Currency } from "@/data/types"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 interface Props {
   merchants: { id: string; name: string }[]
@@ -53,9 +53,15 @@ export function IssueCardDialog({ merchants }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [revealedNumber, setRevealedNumber] = useState<string | null>(null)
 
+  // Invalidated on close so a POST that resolves after the drawer was
+  // dismissed can't resurrect a stale success screen with someone else's
+  // card number the next time the drawer opens.
+  const requestIdRef = useRef(0)
+
   const resetAndClose = (nextOpen: boolean) => {
     setOpen(nextOpen)
     if (!nextOpen) {
+      requestIdRef.current += 1
       // Never let the full number outlive the success screen.
       setRevealedNumber(null)
       setStep("form")
@@ -69,6 +75,7 @@ export function IssueCardDialog({ merchants }: Props) {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (submitting) return // one in-flight issuance at a time, no double-submit
     setError(null)
 
     if (!form.nickname.trim()) {
@@ -84,6 +91,7 @@ export function IssueCardDialog({ merchants }: Props) {
       return
     }
 
+    const requestId = ++requestIdRef.current
     setSubmitting(true)
     try {
       const response = await fetch("/api/cards", {
@@ -100,6 +108,11 @@ export function IssueCardDialog({ merchants }: Props) {
 
       const payload = await response.json()
 
+      // The drawer was closed (or reopened for a new card) while this was
+      // in flight - applying a stale response now would show the wrong
+      // card's number on whatever screen is open next.
+      if (requestIdRef.current !== requestId) return
+
       if (!response.ok) {
         setError(payload.error ?? "Something went wrong issuing the card.")
         return
@@ -108,9 +121,11 @@ export function IssueCardDialog({ merchants }: Props) {
       setRevealedNumber(payload.number as string)
       setStep("success")
     } catch {
-      setError("Could not reach the server. Try again.")
+      if (requestIdRef.current === requestId) {
+        setError("Could not reach the server. Try again.")
+      }
     } finally {
-      setSubmitting(false)
+      if (requestIdRef.current === requestId) setSubmitting(false)
     }
   }
 
