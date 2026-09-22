@@ -148,7 +148,9 @@ export function generate() {
   }
 
   const payouts = generatePayouts(payments)
-  return { payments, refunds, disputes, payouts }
+  // TODO(NWP-201, agent C): seed Card[] here using generateCardNumber from
+  // src/lib/cards.ts, matching the deterministic `rand`/`pick` pattern above.
+  return { payments, refunds, disputes, payouts, cards: [] }
 }
 
 function generatePayouts(payments: Payment[]): Payout[] {
